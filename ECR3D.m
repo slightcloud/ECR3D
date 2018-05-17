@@ -36,53 +36,68 @@ N_grid_z = (Z-0)/0.0005+1;      %z方向的格点数
 spwt_e = 1e6;                   %每个宏粒子代表的实际电子个数
 spwt_i = 1e6;                   %每个宏粒子代表的实际离子个数
 N_e = 1000;                     %初始电子数目为1000个
-N_i = 1000;                     %初始离子数目为1个，满足初始电中性条件
+N_Li1 = N_e;                    %初始离子数目，满足初始电中性条件
 max_part = 100000;              %粒子容器的最大值
 vth_e = c^2-(c/(-q_e*0.01/m_e/c^2+1)^2);    %电子的热速度，设为2 eV
+T_e_ini = 0.1;                              %电子的初始平均能量，单位：eV
+T_Li1_ini = 0.25;                           %Li+的初始平均能量，单位：eV
 B_x = zeros(N_grid_x,N_grid_y,N_grid_z);    %格点上的Bx预分配空间
 B_y = zeros(N_grid_x,N_grid_y,N_grid_z);    %格点上的By预分配空间
 B_z = zeros(N_grid_x,N_grid_y,N_grid_z);    %格点上的Bz预分配空间
 E_x = zeros(N_grid_x,N_grid_y,N_grid_z);    %格点上的Ex预分配空间
 E_y = zeros(N_grid_x,N_grid_y,N_grid_z);    %格点上的Ey预分配空间
 E_z = zeros(N_grid_x,N_grid_y,N_grid_z);    %格点上的Ez预分配空间
-B_e = zeros(N_e,3); %电子所在位置处的磁感应强度
-B_i = zeros(N_i,3); %离子所在位置处的磁感应强度
-E_e = zeros(N_e,3); %电子所在位置处的电场强度
-E_i = zeros(N_i,3); %离子所在位置处的电场强度
+% B_e = zeros(N_e,3); %电子所在位置处的磁感应强度
+% E_e = zeros(N_e,3); %电子所在位置处的电场强度
+% B_Li1 = zeros(N_i,3); %Li+所在位置处的磁感应强度
+% E_Li1 = zeros(N_i,3); %Li+所在位置处的电场强度
 pos_e = zeros(max_part,3); %给电子的位置预分配空间
 vel_e = zeros(max_part,3); %给电子的速度预分配空间
-pos_i = zeros(max_part,3); %给离子的位置预分配空间
-vel_i = zeros(max_part,3); %给离子的速度预分配空间
+pos_Li1 = zeros(max_part,3); %给离子的位置预分配空间
+vel_Li1 = zeros(max_part,3); %给离子的速度预分配空间
 
 load magnetic.txt;         %载入磁场数据
 load sigma.txt;            %载入电离截面数据
 len_B = length(magnetic);  %确定磁场数据的行数
 len_s = length(sigma);     %确定电离截面数据的行数
 
+
+%****************************************************************************
 %将磁场数据都分配到格点上
-for i=1:len_B
-    in_x=(magnetic(i,1)-(-0.02))/0.0005+1; %x方向网格的格点序号
-    in_x=round(in_x); %取整
-    in_y=(magnetic(i,2)-(-0.02))/0.0005+1; %y方向网格的格点序号
-    in_y=round(in_y); %取整
-    in_z=(magnetic(i,3)-0)/0.0005+1; %z方向网格的格点序号
-    in_z=round(in_z); %取整
-    B_x(in_x,in_y,in_z)=magnetic(i,4); %将x方向的磁感应强度分配到网格上
-    B_y(in_x,in_y,in_z)=magnetic(i,5); %将y方向的磁感应强度分配到网格上
-    B_z(in_x,in_y,in_z)=magnetic(i,6); %将z方向的磁感应强度分配到网格上
+%****************************************************************************
+for i = 1:len_B
+    in_x = (magnetic(i,1)-(-R))/0.0005+1; %x方向网格的格点序号
+    in_x = round(in_x); %取整
+    in_y = (magnetic(i,2)-(-R))/0.0005+1; %y方向网格的格点序号
+    in_y = round(in_y); %取整
+    in_z = (magnetic(i,3)-0)/0.0005+1; %z方向网格的格点序号
+    in_z = round(in_z); %取整
+    B_x(in_x,in_y,in_z) = magnetic(i,4); %将x方向的磁感应强度分配到网格上
+    B_y(in_x,in_y,in_z) = magnetic(i,5); %将y方向的磁感应强度分配到网格上
+    B_z(in_x,in_y,in_z) = magnetic(i,6); %将z方向的磁感应强度分配到网格上
     fprintf('there is %d data left to load, please be patient\n', len_B-i);
 end
 clc;
 fprintf('Congratulations! All the magnetic data has been loaded!\n');
 
+%****************************************************************************
+%给定初始电子和离子的初速度和初位置
+%****************************************************************************
 
-%给定电子的初速度和初位置
-vel_e=sampleIsotropicVel(vth_e,N_e); %调用子函数给每个电子分配服从麦克斯韦分布且在4π角度各向同性的速度
-theta_pos_e=2*pi()*rand(N_e,1); %选定一个随意角度
-R_e=R*rand(N_e,1); %电子的径向位置
-pos_e=[R_e.*cos(theta_pos_e),R.*sin(theta_pos_e),Z*rand(N_e,1)+0.011]; %放电室的半径为R，长度为0.042m
+% vel_e=sampleIsotropicVel(vth_e,N_e); %调用子函数给每个电子分配服从麦克斯韦分布且在4π角度各向同性的速度
 
+theta_pos = 2*pi()*rand(N_e,2);                                                                           %选定一个随意角度
+R_pos = R*rand(N_e,2);                                                                                    %粒子的径向位置
+pos_e(1:N_e,3) = [R_pos(:,1).*cos(theta_pos(:,1)),R_pos(:,1).*sin(theta_pos(:,1)),Z*rand(N_e,1)];         %电子的初始位置
+pos_Li1(1:N_Li1,3) = [R_pos(:,2).*cos(theta_pos(:,2)),R_pos(:,2).*sin(theta_pos(:,2)),Z*rand(N_e,1)];     %离子的初始位置
+vel_e(1:N_e,:) = randraw('maxwell',sqrt(T_e_ini*q_e/m_e),N_e).*random_unit_vector(3,N_e)';                %设置初始电子的速度，使之服从麦克斯韦分布，且各向同性
+vel_Li1(1:N_Li1,:) = randraw('maxwell',sqrt(T_Li1_ini*q_e/m_Li),N_Li1).*random_unit_vector(3,N_Li1)';     %设置初始Li+的速度，使之服从麦克斯韦分布，且各向同性
+
+
+%****************************************************************************
 %开始主循环
+%****************************************************************************
+
 for ts_i=1:step_num_i
     for ts_e=1:dt_i/dt_e %离子运动一步，电子运动dt_i/dt_e步
         
@@ -103,8 +118,8 @@ for ts_i=1:step_num_i
                 if sigma(cross,1)<=Ek_e(p,1) && cross<len_s
                     sigma_e(p,1)=1e-6*((sigma(cross+1,2)-sigma(cross,2))/(sigma(cross+1,1)-sigma(cross,1))*(Ek_e(p,1)-sigma(cross,1))+sigma(cross,2)); %通过插值的方式找到电子能量所对应的电离截面
                     P_e=1-exp(-n*sigma_e(p,1)*dt_e); %计算该电子发生电离的概率
-                    R_e=rand(); %抽取一个随机数用以和电离概率做比较
-                    if R_e<P_e %电离碰撞发生
+                    R_pos=rand(); %抽取一个随机数用以和电离概率做比较
+                    if R_pos<P_e %电离碰撞发生
                         f_s=rand(); %给定一个随机数作为入射电子损耗电离能后分配给散射电子的比例
                         Ek_e_s=(Ek_e(p,1)-E_H)*fs; %碰撞后散射电子的能量
                         Ek_e_n=(Ek_e(p,1)-E_H)*(1-fs); %碰撞后产生的新电子的能量
@@ -133,8 +148,8 @@ for ts_i=1:step_num_i
                 if sigma(cross,1)<=Ek_e(p,1)&&cross==len_s
                     sigma_e(p,1)=1e-6*((0-sigma(cross,2))/(0-sigma(cross,1))*(Ek_e(p,1)-sigma(cross,1))+sigma(cross,2)); %插值找截面
                     P_e=1-exp(-n*sigma_e(p,1)*dt_e); %计算该电子发生电离的概率
-                    R_e=rand(); %抽取一个随机数用以和电离概率做比较
-                    if R_e<P_e %电离碰撞发生
+                    R_pos=rand(); %抽取一个随机数用以和电离概率做比较
+                    if R_pos<P_e %电离碰撞发生
                         f_s=rand(); %给定一个随机数作为入射电子损耗电离能后分配给散射电子的比例
                         Ek_e_s=(Ek_e(p,1)-E_H)*fs; %碰撞后散射电子的能量
                         Ek_e_n=(Ek_e(p,1)-E_H)*(1-fs); %碰撞后产生的新电子的能量
