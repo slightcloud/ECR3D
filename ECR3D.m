@@ -1,58 +1,63 @@
+%****************************************************************************
 %计算3D空间中ECR放电的过程，方法为PIC-MCC
+%****************************************************************************
 
 clear variables;
 clc;
 
 global m_e q_e m_H q_H
-
+%****************************************************************************
 %定义基础参数
-m_e=9.109e-31; %电子质量
-q_e=-1.602e-19; %电子电量
-AMU = 1.661e-27; %质子质量，单位：kg
-EPS0 = 8.854e-12; %真空中的介电常数，单位：F/m
-MU0=4*pi()*1e-7; %真空中的磁导率，单位：H/m
-k=1.38e-23; %玻尔兹曼常数，单位：J/K
-c=3e8; %光速，单位：m/s
-E_H=13.6; %氢的电离能
-m_H=1*AMU; %质子质量
-q_H=1.602e-19; %质子电量
-Z=0.042; %Z轴范围
-R=0.02; %放电室半径
-P=1; %离子源内的压强设置为1Pa
-V=pi()*R^2*Z; %离子源放电室的体积
-T=273.15+300; %源内的温度设为300℃
-n=P/k/T; %源内中性原子的数密度，根据理想气体方程P=nkT得出
-dt_e=1.5e-12; %电子运动时间步长
-dt_i=3.0e-10; %离子运动时间步长
-dg=0.0005; %单元网格的长度，单位：m
-step_num_i=600; %离子的时间步数
-N_grid_x=(0.02-(-0.02))/0.0005+1; %x方向的格点数
-N_grid_y=(0.02-(-0.02))/0.0005+1; %y方向的格点数
-N_grid_z=(0.063-0)/0.0005+1; %z方向的格点数
-spwt_e=1e6; %每个宏粒子代表的实际电子个数
-spwt_i=1e3; %每个宏粒子代表的实际离子个数
-N_e=1000; %初始电子数目为1000个
-N_i=1; %初始离子数目为1个
-vth_e=c^2-(c/(-q_e*0.01/m_e/c^2+1)^2);  %电子的热速度，设为2 eV
-B_x=zeros(N_grid_x,N_grid_y,N_grid_z); %格点上的Bx预分配空间
-B_y=zeros(N_grid_x,N_grid_y,N_grid_z); %格点上的By预分配空间
-B_z=zeros(N_grid_x,N_grid_y,N_grid_z); %格点上的Bz预分配空间
-E_x=zeros(N_grid_x,N_grid_y,N_grid_z); %格点上的Ex预分配空间
-E_y=zeros(N_grid_x,N_grid_y,N_grid_z); %格点上的Ey预分配空间
-E_z=zeros(N_grid_x,N_grid_y,N_grid_z); %格点上的Ez预分配空间
-B_e=zeros(N_e,3); %电子所在位置处的磁感应强度
-B_i=zeros(N_i,3); %离子所在位置处的磁感应强度
-E_e=zeros(N_e,3); %电子所在位置处的电场强度
-E_i=zeros(N_i,3); %离子所在位置处的电场强度
-%pos_e=zeros(N_e,3); %给电子的位置预分配空间
-%vel_e=zeros(N_e,3); %给电子的速度预分配空间
-pos_i=zeros(N_i,3); %给离子的位置预分配空间
-vel_i=zeros(N_i,3); %给离子的速度预分配空间
+%****************************************************************************
+m_e = 9.109e-31;        %电子质量
+q_e = -1.602e-19;       %电子电量
+AMU = 1.661e-27;        %质子质量，单位：kg
+EPS0 = 8.854e-12;       %真空中的介电常数，单位：F/m
+MU0 = 4*pi()*1e-7;      %真空中的磁导率，单位：H/m
+k = 1.38e-23;           %玻尔兹曼常数，单位：J/K
+c = 3e8;                %光速，单位：m/s
+E_i_Li1 = 5.4;          %Li0->Li1的电离能，单位：eV
+E_i_Li2 = 75.77;        %Li1->Li2的电离能，单位：eV
+E_i_Li3 = 122.664;      %Li2->Li3的电离能，单位：eV
+m_Li = 7*AMU;           %锂单质质量
+Z = 0.135;              %Z轴范围，单位：m
+R = 0.025;              %放电室半径，单位：m
+P = 1;                  %离子源内的压强设置为1Pa
+V = pi()*R^2*Z;         %离子源放电室的体积，单位：m^3
+T = 273.15+300;         %源内的温度设为300℃
+n = P/k/T;              %源内中性原子的数密度，根据理想气体方程P=nkT得出
+dt_e = 1.5e-12;         %电子运动时间步长
+dt_i = 3.0e-10;         %离子运动时间步长
+dg = 0.0005;            %单元网格的长度，单位：m
+step_num_i = 600;       %离子的时间步数
+N_grid_x = (R-(-R))/0.0005+1;   %x方向的格点数
+N_grid_y = (R-(-R))/0.0005+1;   %y方向的格点数
+N_grid_z = (Z-0)/0.0005+1;      %z方向的格点数
+spwt_e = 1e6;                   %每个宏粒子代表的实际电子个数
+spwt_i = 1e6;                   %每个宏粒子代表的实际离子个数
+N_e = 1000;                     %初始电子数目为1000个
+N_i = 1000;                     %初始离子数目为1个，满足初始电中性条件
+max_part = 100000;              %粒子容器的最大值
+vth_e = c^2-(c/(-q_e*0.01/m_e/c^2+1)^2);    %电子的热速度，设为2 eV
+B_x = zeros(N_grid_x,N_grid_y,N_grid_z);    %格点上的Bx预分配空间
+B_y = zeros(N_grid_x,N_grid_y,N_grid_z);    %格点上的By预分配空间
+B_z = zeros(N_grid_x,N_grid_y,N_grid_z);    %格点上的Bz预分配空间
+E_x = zeros(N_grid_x,N_grid_y,N_grid_z);    %格点上的Ex预分配空间
+E_y = zeros(N_grid_x,N_grid_y,N_grid_z);    %格点上的Ey预分配空间
+E_z = zeros(N_grid_x,N_grid_y,N_grid_z);    %格点上的Ez预分配空间
+B_e = zeros(N_e,3); %电子所在位置处的磁感应强度
+B_i = zeros(N_i,3); %离子所在位置处的磁感应强度
+E_e = zeros(N_e,3); %电子所在位置处的电场强度
+E_i = zeros(N_i,3); %离子所在位置处的电场强度
+pos_e = zeros(max_part,3); %给电子的位置预分配空间
+vel_e = zeros(max_part,3); %给电子的速度预分配空间
+pos_i = zeros(max_part,3); %给离子的位置预分配空间
+vel_i = zeros(max_part,3); %给离子的速度预分配空间
 
-load magnetic.txt; %载入磁场数据
-load sigma.txt; %载入电离截面数据
-len_B=length(magnetic); %确定磁场数据的列数
-len_s=length(sigma); %确定电离截面数据的列数
+load magnetic.txt;         %载入磁场数据
+load sigma.txt;            %载入电离截面数据
+len_B = length(magnetic);  %确定磁场数据的行数
+len_s = length(sigma);     %确定电离截面数据的行数
 
 %将磁场数据都分配到格点上
 for i=1:len_B
@@ -67,6 +72,7 @@ for i=1:len_B
     B_z(in_x,in_y,in_z)=magnetic(i,6); %将z方向的磁感应强度分配到网格上
     fprintf('there is %d data left to load, please be patient\n', len_B-i);
 end
+clc;
 fprintf('Congratulations! All the magnetic data has been loaded!\n');
 
 
